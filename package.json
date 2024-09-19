@@ -34,5 +34,9 @@
       "icon": "assets/images/stockholm-trekkers-300x300.png",
       "synopsis": "A playlist maker for the Stockholm Trekkers."
     }
+  },
+  "dependencies": {
+    "ffmpeg-static": "^5.2.0",
+    "fluent-ffmpeg": "^2.1.3"
   }
 }
