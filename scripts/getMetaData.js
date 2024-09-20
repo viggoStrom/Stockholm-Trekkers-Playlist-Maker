@@ -4,6 +4,7 @@ const path = require("node:path")
 const raiseError = require("./raiseError.js");
 const ffmpeg = require("fluent-ffmpeg");
 const ffmpegPath = require("ffmpeg-static");
+const ffprobePath = require("ffprobe-static").path;
 
 const getMetaData = (filePath) => {
     return new Promise((resolve, reject) => {
@@ -21,11 +22,9 @@ const getMetaData = (filePath) => {
 
 const setUpHandlers = () => {
     ffmpeg.setFfmpegPath(ffmpegPath);
-    console.log("[INFO] ffmpegPath: ", ffmpegPath);
+    ffmpeg.setFfprobePath(ffprobePath);
 
     ipcMain.handle("get-meta-data", getMetaData);
 };
 
 module.exports = { setUpHandlers };
-
-getMetaData("assets/videos/pause_1_min_covid.mp4");
