@@ -1,28 +1,16 @@
 const { ipcMain, dialog } = require("electron");
+const { Worker } = require("worker_threads");
 const path = require("node:path");
 const fs = require("node:fs");
 const raiseError = require("./raiseError.js");
 const { projectGet, projectFolder: userData, projectFolder } = require("./save/projects.js");
 
+const exportStatus = {
+    progress: "0%",
+    message: "Making folders..."
+};
+
 const copyAllAssets = (projectJSON, projectFolder) => {
-    // Creates the project folder in the selected folder.
-    // Confirm with the user to overwrite old folder, if not, cancel the export
-    if (fs.existsSync(projectFolder)) {
-        if (
-            !dialog.showMessageBoxSync({
-                type: "question",
-                buttons: ["Yes", "No"],
-                title: "Export",
-                message: "The project folder already exists. Do you want to overwrite it? \n\n Clicking no will cancel the export.",
-                defaultId: 1,
-                cancelId: 1,
-            })
-        ) {
-            return;
-        }
-        // If the user wants to overwrite the folder, delete the old folder
-        fs.rmSync(projectFolder, { recursive: true });
-    }
 
     // Create the output folder
     fs.mkdirSync(projectFolder);
@@ -31,6 +19,9 @@ const copyAllAssets = (projectJSON, projectFolder) => {
     const pauseFolder = path.join(__dirname, "..", "assets", "videos");
 
     // Copy the entire pauses folder to the output folder in /pauses
+    exportStatus.progress = "33%";
+    exportStatus.message = "Copying pauses...";
+    console.log("[INFO] Copying pauses...");
     fs.mkdirSync(path.join(projectFolder, "pauses"));
     fs.cpSync(pauseFolder, path.join(projectFolder, "pauses"), { recursive: true });
 
@@ -38,8 +29,11 @@ const copyAllAssets = (projectJSON, projectFolder) => {
     fs.mkdirSync(path.join(projectFolder, "episodes"));
 
     // Loop through all the episodes and copy them from their given path to the output folder
-    projectJSON.blocks.forEach((block) => {
-        block.episodes.forEach((episode) => {
+    exportStatus.progress = "40%";
+    exportStatus.message = "Copying episodes...";
+    console.log("[INFO] Copying episodes...");
+    projectJSON.blocks.forEach((block, blockIndex) => {
+        block.episodes.forEach((episode, episodeIndex) => {
 
             // Check if the file path is missing or if the file is missing
             if (episode.filePath === "") { raiseError("Cannot find " + episode.fileName + ". The file path seems to be missing"); return; };
@@ -51,6 +45,10 @@ const copyAllAssets = (projectJSON, projectFolder) => {
                 return;
             };
 
+            // Update the export status
+            exportStatus.progress = `${Math.floor(40 + (50 * (blockIndex + episodeIndex) / (projectJSON.blocks.length * block.episodes.length)))}%`; // episode coping starts at 40% and ends at 90%
+            exportStatus.message = "Copying " + episode.fileName + "...";
+
             // Copy the episode to the output folder
             fs.copyFileSync(episode.filePath, path.join(projectFolder, "episodes", episode.fileName));
         });
@@ -59,6 +57,11 @@ const copyAllAssets = (projectJSON, projectFolder) => {
 
 // Make the ps1 "harness" that runs VLC and runs the correct episodes at the correct times
 const makePS1 = (projectJSON, projectFolder) => {
+
+    // Update the export status
+    exportStatus.progress = "90%";
+    exportStatus.message = "Making ps1 script...";
+    console.log("[INFO] Making ps1 script...");
 
     const staticBeginning = `
 
@@ -249,17 +252,22 @@ Insert-Pause -pausePath '/pauses/pause_30_min.mp4' -playImmediately $false
 
     // Write the script to the project folder
     fs.writeFileSync(path.join(projectFolder, "play.ps1"), script);
+
+    // Update the export status
+    exportStatus.progress = "100%";
+    exportStatus.message = "Done!";
 };
 
 // The main export function that is called when the user wants to export a project
 const projectExport = (id) => {
+    console.log("[INFO] Exporting project with id: " + id);
 
     // Prompt with information about the export
     dialog.showMessageBoxSync({
         type: "info",
         buttons: ["OK"],
         title: "Good to know about exporting",
-        message: "When exporting a project, your speed is limited only the the write speed of the disk you are exporting to. My suggestion is to export to your system drive for fast speeds. Then you should zip it and upload it to the cloud and copy it to a USB drive. This, in my experience, is the best and most convenient way of doing it since the program can hang if your writing directly to a USB drive.",
+        message: "When exporting a project, your speed depends on the write speed of the disk. I recommend exporting to your system drive for faster performance, then zipping the file, uploading it to the cloud, and then transferring it to a USB drive. Directly exporting to a USB drive is slow and  can cause the program to hang."
     });
 
     // Prompt to select the output folder
@@ -280,6 +288,25 @@ const projectExport = (id) => {
     // chosen/projectName
     const projectFolder = path.join(chosenFolder[0], projectJSON.name);
 
+    // Creates the project folder in the selected folder.
+    // Confirm with the user to overwrite old folder, if not, cancel the export
+    if (fs.existsSync(projectFolder)) {
+        if (
+            dialog.showMessageBoxSync({
+                type: "question",
+                buttons: ["Yes", "No"],
+                title: "Export",
+                message: "The project folder already exists. Do you want to overwrite it? \n\n Clicking no will cancel the export.",
+                defaultId: 1,
+                cancelId: 1,
+            })
+        ) {
+            return;
+        }
+        // If the user wants to overwrite the folder, delete the old folder
+        fs.rmSync(projectFolder, { recursive: true });
+    }
+
     // Copy the pauses and episodes to the project folder
     copyAllAssets(projectJSON, projectFolder);
 
@@ -288,9 +315,31 @@ const projectExport = (id) => {
 };
 
 const setUpHandlers = () => {
+
     ipcMain.handle("start-export", (event, id) => {
-        projectExport(id);
+        // projectExport(id);
+        const worker = new Worker(path.join(__dirname, "exportWorker.js"));
+        worker.postMessage(id);
+    });
+
+    ipcMain.handle("get-export-status", (event) => {
+        return exportStatus;
+    });
+
+    ipcMain.handle("cancel-export", (event) => {
+        if (
+            !dialog.showMessageBoxSync({
+                type: "warning",
+                buttons: ["Cancel export", "Continue export"],
+                title: "Cancel Export?",
+                message: "You are trying to cancel the export. Right now, that is done by closing the entire program. Sorry for the inconvenience.",
+                defaultId: 1,
+                cancelId: 1,
+            })
+        ) {
+            process.abort();
+        }
     });
 };
 
-module.exports = { setUpHandlers };
+module.exports = { setUpHandlers, projectExport };

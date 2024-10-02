@@ -28,6 +28,7 @@
     <script defer src="../js/project-editor/load.js"></script>
     <script defer src="../js/project-editor/setStartTimes.js"></script>
     <script defer src="../js/project-editor/createBlockAndEpisodes.js"></script>
+    <script defer src="../js/project-editor/exportStatus.js"></script>
     <script defer src="../js/project-editor/save.js"></script>
 
     <!-- Template block -->
@@ -121,6 +122,23 @@
         </section>
 
         <div class="bottom-sticky-container">
+
+            <div class="round-box export-progress-window hidden">
+                <div class="header">
+                    <p>Exporting</p>
+                </div>
+
+                <div class="body">
+                    <p class="status-text">The export has begun and will take a while since it needs to copy all the files included in the project</p>
+
+                    <div id="export-progress-bar" style="background-size: 0%;"></div>
+
+                    <p class="status-text">Making folders...</p>
+
+                    <button class="cancel">Cancel</button>
+                </div>
+            </div>
+
             <div class="export-box round-box">
                 <div class="hide-unset clickable" tabindex="0">
                     <p>Hide unset</p>

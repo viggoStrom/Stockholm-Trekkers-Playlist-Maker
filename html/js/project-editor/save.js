@@ -72,6 +72,9 @@ exportButton.addEventListener("click", () => {
     setTimeout(() => {
         // Calls the exporter api in the preload.js script
         exporter.start(getID());
+
+        // Starts updating the export status text and progress bar
+        startExportStatusGetter();
     }, 500);
 });
 

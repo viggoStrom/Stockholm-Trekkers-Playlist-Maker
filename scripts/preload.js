@@ -21,4 +21,6 @@ contextBridge.exposeInMainWorld("metadata", {
 
 contextBridge.exposeInMainWorld("exporter", {
     start: (id) => ipcRenderer.invoke("start-export", id),
+    getStatus: () => ipcRenderer.invoke("get-export-status"),
+    cancel: () => ipcRenderer.invoke("cancel-export"),
 });
