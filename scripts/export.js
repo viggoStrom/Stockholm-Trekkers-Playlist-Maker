@@ -1,5 +1,5 @@
 const { ipcMain, dialog } = require("electron");
-const { Worker } = require("worker_threads");
+const { Worker, isMainThread } = require("worker_threads");
 const path = require("node:path");
 const fs = require("node:fs");
 const raiseError = require("./raiseError.js");
@@ -260,6 +260,7 @@ Insert-Pause -pausePath '/pauses/pause_30_min.mp4' -playImmediately $false
 
 // The main export function that is called when the user wants to export a project
 const projectExport = (id) => {
+
     console.log("[INFO] Exporting project with id: " + id);
 
     // Prompt with information about the export
@@ -314,11 +315,19 @@ const projectExport = (id) => {
     makePS1(projectJSON, projectFolder);
 };
 
-const setUpHandlers = () => {
 
+// A worker thread does the copying and such so the main thread doesn't hang
+let worker;
+if (isMainThread) {
+    worker = new Worker(__filename);
+} else {
+    worker.on("message", (id) => {
+        projectExport(id);
+    });
+}
+
+const setUpHandlers = () => {
     ipcMain.handle("start-export", (event, id) => {
-        // projectExport(id);
-        const worker = new Worker(path.join(__dirname, "exportWorker.js"));
         worker.postMessage(id);
     });
 
@@ -342,4 +351,4 @@ const setUpHandlers = () => {
     });
 };
 
-module.exports = { setUpHandlers, projectExport };
+module.exports = { setUpHandlers };
