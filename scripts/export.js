@@ -13,7 +13,7 @@ const exportStatus = {
     exportLocation: "",
 };
 
-const copyAllAssets = (projectJSON, projectFolder) => {
+const copyAllAssets = (projectJSON, exportFolder) => {
     // Copies the pause clips to the output folder
     const pauseFolder = path.join(__dirname, "..", "assets", "videos");
 
@@ -25,11 +25,11 @@ const copyAllAssets = (projectJSON, projectFolder) => {
 
     // Copy the entire pauses folder to the output folder in /pauses
     console.log("[INFO] Copying pauses...");
-    fs.mkdirSync(path.join(projectFolder, "pauses"));
-    fs.cpSync(pauseFolder, path.join(projectFolder, "pauses"), { recursive: true });
+    fs.mkdirSync(path.join(exportFolder, "pauses"));
+    fs.cpSync(pauseFolder, path.join(exportFolder, "pauses"), { recursive: true });
 
     // Make episodes folder
-    fs.mkdirSync(path.join(projectFolder, "episodes"));
+    fs.mkdirSync(path.join(exportFolder, "episodes"));
 
     // Update export status
     exportStatus.message = "Copying episodes...";
@@ -50,15 +50,20 @@ const copyAllAssets = (projectJSON, projectFolder) => {
             if (!fs.existsSync(episode.filePath)) { raiseError("Cannot find " + episode.fileName + ". The file seems to be missing"); return; };
 
             // If a file with the same name already exists in the output folder, don't copy again
-            if (fs.existsSync(path.join(projectFolder, "episodes", episode.fileName))) {
+            if (fs.existsSync(path.join(exportFolder, "episodes", episode.fileName))) {
                 console.log(`[WARN] A file (${episode.fileName}) wasn't copied due to the project already containing a file with the same name. This should be expected behavior when showing multiples of the same file but it could also be bad if files accidentally were named the same thing.`);
                 return;
             };
 
             // Copy the episode to the output folder
-            fs.copyFileSync(episode.filePath, path.join(projectFolder, "episodes", episode.fileName));
+            fs.copyFileSync(episode.filePath, path.join(exportFolder, "episodes", episode.fileName));
         });
     });
+
+    // Copy the save file from user data to the output folder
+    console.log("[INFO] Copying save file...");
+    fs.mkdirSync(path.join(exportFolder, "projectSaveFile"));
+    fs.copyFileSync(path.join(userData, projectJSON.id + ".json"), path.join(exportFolder, "projectSaveFile", projectJSON.id + ".json"));
 
     // Update export status
     exportStatus.message = "Done!";
@@ -67,7 +72,7 @@ const copyAllAssets = (projectJSON, projectFolder) => {
 };
 
 // Make the ps1 "harness" that runs VLC and runs the correct episodes at the correct times
-const makePS1 = (projectJSON, projectFolder) => {
+const makePS1 = (projectJSON, exportFolder) => {
     console.log("[INFO] Making ps1 script...");
 
     // Update export status
@@ -262,10 +267,10 @@ Insert-Pause -pausePath '/pauses/pause_30_min.mp4' -playImmediately $false
     const script = staticBeginning + blocks.join("\n");
 
     // Write the script to the project folder
-    if (!fs.existsSync(projectFolder)) {
-        fs.mkdirSync(projectFolder, { recursive: true });
+    if (!fs.existsSync(exportFolder)) {
+        fs.mkdirSync(exportFolder, { recursive: true });
     };
-    fs.writeFileSync(path.join(projectFolder, "play.ps1"), script);
+    fs.writeFileSync(path.join(exportFolder, "play.ps1"), script);
 };
 
 // The main export function that is called when the user wants to export a project
