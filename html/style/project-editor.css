@@ -263,6 +263,8 @@
                 pointer-events: none;
 
                 &>.export-progress-window {
+                    position: fixed;
+
                     justify-self: center;
                     transform: translateY(-45dvh);
 
